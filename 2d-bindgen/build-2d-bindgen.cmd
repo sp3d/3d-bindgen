@@ -1,0 +1,1 @@
+gcc -g `pkg-config --cflags --libs gobject-introspection-1.0` 2d-bindgen.c -o 2d-bindgen

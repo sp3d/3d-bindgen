@@ -1,0 +1,4 @@
+3d-bindgen: a self-hosted GObject Introspection binding generator, for mzabaluev/grust
+
+This code is *not* the current direction intended to be pursued.
+The real implementation of 3d-bindgen will be a fairly straightforward port of 2d-bindgen to rust, excising the dirty hacks and global state which pervade it, able to generate the bindings which it uses to access GIR type information.
