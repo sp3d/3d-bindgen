@@ -416,7 +416,9 @@ void do_enum(GIEnumInfo* info)
 	gint64 min = G_MAXINT64;
 	gint64 max = G_MININT64;
 	
-	fmt_line("mod %s { pub enum %s {", escaped_name(info), escaped_name(info));
+	/*TODO: single-variant enums *do* need to have a specified repr but this is impossible currently*/
+	const char* repr = (n>1) ? "#[repr(C)] " : "";
+	fmt_line("mod %s { %spub enum %s {", escaped_name(info), repr, escaped_name(info));
 	indent++;
 	
 	GITypeInfo* first_variant = g_enum_info_get_value(info, 0);
