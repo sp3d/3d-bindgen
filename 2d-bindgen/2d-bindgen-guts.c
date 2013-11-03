@@ -379,7 +379,7 @@ void do_struct(GIStructInfo* info)
 		}
 		else if(!strcmp(name, "HashTable"))
 		{
-			fprintf(out, "<S, T>");
+			fprintf(out, "<K, V>");
 		}
 	}
 	
