@@ -1,1 +1,0 @@
-gcc -g `pkg-config --cflags --libs gobject-introspection-1.0` 2draw-bindgen.c -o 2draw-bindgen
