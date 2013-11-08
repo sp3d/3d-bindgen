@@ -8,13 +8,15 @@ GRUST_LIBS=-L ../../grust/build/grust/.libs/
 TEST_LIB=GLib
 #TEST_LIB=GIRepository
 
-generate: gen-$(TEST_LIB).rs
+generate: gen-$(TEST_LIB)/lib.rs
 
-gen-$(TEST_LIB).rs: 2d-bindgen
-	./2d-bindgen $(TEST_LIB) > gen-$(TEST_LIB).rs
+gen-$(TEST_LIB)/lib.rs: 2d-bindgen
+	./2d-bindgen $(TEST_LIB)
+	mv $(TEST_LIB) gen-$(TEST_LIB)
 
-generate-compile: gen-$(TEST_LIB).rs
-	rustc gen-$(TEST_LIB).rs $(GRUST_LIBS)
+generate-compile: gen-$(TEST_LIB)/lib.rs
+	rustc --lib gen-$(TEST_LIB)/lib.rs $(GRUST_LIBS)
 
 clean:
-	$(RM) 2d-bindgen gen-*.rs libgrust-*-2d-bindgen-*.so
+	$(RM) 2d-bindgen
+	$(RM) -r gen-*

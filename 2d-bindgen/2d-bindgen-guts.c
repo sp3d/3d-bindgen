@@ -191,11 +191,9 @@ void raw_type(GITypeInfo* type)
 			GITypeInfo* param = g_type_info_get_param_type(type, 0);
 			switch(arr_type)
 			{
-				case GI_ARRAY_TYPE_C:/*&[T] or ~[T]*/
-					/*TODO: allocation*/
-					fprintf(out, "&'static [");
+				case GI_ARRAY_TYPE_C:/* raw pointer */
+					fprintf(out, "*");
 					raw_type(param);
-					fprintf(out, "]");
 					break;
 				case GI_ARRAY_TYPE_ARRAY:/* &/~ GLib::Array<T> */
 					raw_allocation();
@@ -311,7 +309,7 @@ void do_function(GICallableInfo* info)
 	
 	if(is_callback)
 	{
-		fmt_line("type %s = ", function_name);
+		fmt_line("pub type %s = ", function_name);
 		raw_fn_type(info);
 	}
 	else if(is_method)
@@ -364,13 +362,13 @@ void do_field(GIFieldInfo* info)
 	bool writable = !!(g_field_info_get_flags(info) & GI_FIELD_IS_WRITABLE);
 	fmt_line("");
 	raw_type_named(g_field_info_get_type(info), escaped_name(info));
-	printf(",");
+	fprintf(out, ",");
 }
 
 void do_struct(GIStructInfo* info)
 {
 	const char* name = escaped_name(info);
-	fmt_line("struct %s", name);
+	fmt_line("pub struct %s", name);
 	if(is_glib)
 	{
 		if(!strcmp(name, "List") || !strcmp(name, "SList") || !strcmp(name, "Array") || !strcmp(name, "PtrArray"))
@@ -418,7 +416,7 @@ void do_enum(GIEnumInfo* info)
 	
 	/*TODO: single-variant enums *do* need to have a specified repr but this is impossible currently*/
 	const char* repr = (n>1) ? "#[repr(C)] " : "";
-	fmt_line("mod %s { %spub enum %s {", escaped_name(info), repr, escaped_name(info));
+	fmt_line("pub mod %s { %spub enum %s {", escaped_name(info), repr, escaped_name(info));
 	indent++;
 	
 	GITypeInfo* first_variant = g_enum_info_get_value(info, 0);
@@ -454,7 +452,7 @@ void do_object(GIObjectInfo* info)
 {
 	/* TODO: more complete object support */
 	const char* name = escaped_name(info);
-	fmt_line("struct %s", name);
+	fmt_line("/*object*/pub struct %s", name);
 	fprintf(out, ";");
 }
 
@@ -478,7 +476,7 @@ void do_constant(GIConstantInfo* info)
 void do_union(GIUnionInfo* info)
 {
 	//fmt_line("%s: ", escaped_name(info));
-	fmt_line("type %s = ", escaped_name(info));
+	fmt_line("pub type %s = ", escaped_name(info));
 	raw_union_type(info);
 	fprintf(out, ";");
 }
@@ -493,7 +491,7 @@ void do_value(GIValueInfo* info)
 
 void do_type(GITypeInfo* info)
 {
-	fmt_line("type %s = ", escaped_name(info));
+	fmt_line("pub type %s = ", escaped_name(info));
 	raw_type(info);
 	fprintf(out, ";");
 }
