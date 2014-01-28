@@ -12,7 +12,6 @@ generate: gen-$(TEST_LIB)/lib.rs
 
 gen-$(TEST_LIB)/lib.rs: 2d-bindgen
 	./2d-bindgen $(TEST_LIB)
-	mv $(TEST_LIB) gen-$(TEST_LIB)
 
 generate-compile: gen-$(TEST_LIB)/lib.rs
 	rustc --lib gen-$(TEST_LIB)/lib.rs $(GRUST_LIBS)

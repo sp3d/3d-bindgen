@@ -36,37 +36,49 @@ const gchar* escaped_name(GIBaseInfo* info)
 }
 
 /*TODO: allocation*/
-void raw_allocation(void)
+void bare_allocation(FILE* f)
 {
-	fprintf(out, "*");
+	fprintf(f, "*");
 }
 
-void raw_type(GITypeInfo* type);
+void bare_type(FILE* f, GITypeInfo* type);
 void do_function(GICallableInfo* info);
 
-void raw_type_named(GITypeInfo* type, const gchar* name)
+void bare_type_named(FILE* f, GITypeInfo* type, const gchar* name)
 {
-	fprintf(out, "%s: ", name);
-	raw_type(type);
+	fprintf(f, "%s: ", name);
+	bare_type(f, type);
 }
 
-void do_arg(GIArgInfo* info)
+enum ArgShow
 {
-	raw_type_named(g_arg_info_get_type(info), escaped_name(info));
+	ARGS_NAMES=1<<0,
+	ARGS_TYPES=2<<0,
+	ARGS_FULL=ARGS_NAMES|ARGS_TYPES,
+};
+
+void bare_arg(FILE* f, GIArgInfo* info, enum ArgShow show)
+{
+	if(show == ARGS_FULL)
+		bare_type_named(f, g_arg_info_get_type(info), escaped_name(info));
+	else if(show == ARGS_TYPES)
+		bare_type(f, g_arg_info_get_type(info));
+	else if(show == ARGS_NAMES)
+		fprintf(f, "%s", escaped_name(info));
 }
 
-void do_args(GICallableInfo* info, bool skip_first)
+void bare_args(FILE* f, GICallableInfo* info, enum ArgShow show, bool skip_first)
 {
 	int n = g_callable_info_get_n_args(info);
 	int i;
 	for(i=skip_first; i<n; i++)
 	{
 		GIArgInfo* arg = g_callable_info_get_arg(info, i);
-		do_arg(arg);
+		bare_arg(f, arg, show);
 		g_base_info_unref(arg);
 		if(i+1<n)
 		{
-			fprintf(out, ", ");
+			fprintf(f, ", ");
 		}
 	}
 }
@@ -111,26 +123,26 @@ const gchar* type_tag(GITypeTag tag)
 	}
 }
 
-void raw_type_params(GITypeInfo* type, int n)
+void bare_type_params(FILE* f, GITypeInfo* type, int n)
 {
 	GITypeInfo* param = g_type_info_get_param_type(type, 0);
 	int i=1;
 	if(param)
 	{
-		fprintf(out, "<");
-		raw_type(param);
+		fprintf(f, "<");
+		bare_type(f, param);
 		while(param && i<n)
 		{
 			g_base_info_unref(param);
 			param = g_type_info_get_param_type(type, i++);
 			if(param)
 			{
-				fprintf(out,", ");
-				raw_type(param);
+				fprintf(f,", ");
+				bare_type(f, param);
 			}
 		}
 		g_base_info_unref(param);
-		fprintf(out,">");
+		fprintf(f,">");
 	}
 }
 
@@ -151,19 +163,19 @@ enum TypeContext
 	TC_TRANSFER_FULL=1<<9,
 };
 
-void raw_fn_type(GICallableInfo* type)
+void bare_fn_type(FILE* f, GICallableInfo* type)
 {
-	fprintf(out, "extern \"C\" fn(");
-	do_args(type, false);
-	fprintf(out, ")");
+	fprintf(f, "extern \"C\" fn(");
+	bare_args(f, type, ARGS_FULL, false);
+	fprintf(f, ")");
 }
 
-void raw_union_type(GIUnionInfo* info)
+void bare_union_type(FILE* f, GIUnionInfo* info)
 {
-	fprintf(out, "[u8, ..%zd]", g_union_info_get_size(info));
+	fprintf(f, "[u8, ..%zd]", g_union_info_get_size(info));
 }
 
-void raw_type(GITypeInfo* type)
+void bare_type(FILE* f, GITypeInfo* type)
 {
 	GITypeTag tag = g_type_info_get_tag(type);
 	bool is_pointer = g_type_info_is_pointer(type);
@@ -173,15 +185,15 @@ void raw_type(GITypeInfo* type)
 		{
 			if(tag == GI_TYPE_TAG_VOID)
 			{
-				fprintf(out, "*libc::c_void");
+				fprintf(f, "*libc::c_void");
 				return;
 			}
 			else
 			{
-				raw_allocation();
+				bare_allocation(f);
 			}
 		}
-		fprintf(out, "%s", type_tag(tag));
+		fprintf(f, "%s", type_tag(tag));
 	}
 	else
 	{
@@ -192,24 +204,24 @@ void raw_type(GITypeInfo* type)
 			switch(arr_type)
 			{
 				case GI_ARRAY_TYPE_C:/* raw pointer */
-					fprintf(out, "*");
-					raw_type(param);
+					fprintf(f, "*");
+					bare_type(f, param);
 					break;
 				case GI_ARRAY_TYPE_ARRAY:/* &/~ GLib::Array<T> */
-					raw_allocation();
-					fprintf(out, "%sArray<", glib_prefix());
-					raw_type(param);
-					fprintf(out, ">");
+					bare_allocation(f);
+					fprintf(f, "%sArray<", glib_prefix());
+					bare_type(f, param);
+					fprintf(f, ">");
 					break;
 				case GI_ARRAY_TYPE_PTR_ARRAY:/* &/~ GLib::PtrArray<T> */
-					raw_allocation();
-					fprintf(out, "%sPtrArray<", glib_prefix());
-					raw_type(param);
-					fprintf(out, ">");
+					bare_allocation(f);
+					fprintf(f, "%sPtrArray<", glib_prefix());
+					bare_type(f, param);
+					fprintf(f, ">");
 					break;
 				case GI_ARRAY_TYPE_BYTE_ARRAY:/* &/~ GLib::ByteArray*/
-					raw_allocation();
-					fprintf(out, "%sByteArray", glib_prefix());
+					bare_allocation(f);
+					fprintf(f, "%sByteArray", glib_prefix());
 					break;
 				default:
 					assert(0);
@@ -220,39 +232,39 @@ void raw_type(GITypeInfo* type)
 		{
 			if(is_pointer)
 			{
-				raw_allocation();
+				bare_allocation(f);
 			}
 			GIBaseInfo* iface = g_type_info_get_interface(type);
 			switch(g_base_info_get_type(iface))
 			{
 				case GI_INFO_TYPE_CALLBACK:
-					raw_fn_type(iface);
+					bare_fn_type(f, iface);
 					break;
 				case GI_INFO_TYPE_STRUCT:
 					//TODO: struct namespacing?
-					fprintf(out, "%s", g_base_info_get_name(iface));
+					fprintf(f, "%s", g_base_info_get_name(iface));
 					break;
 				case GI_INFO_TYPE_BOXED:
-					fprintf(out, "GLib::Boxed<%s>", g_base_info_get_name(iface));
+					fprintf(f, "GLib::Boxed<%s>", g_base_info_get_name(iface));
 					break;
 				case GI_INFO_TYPE_ENUM:
-					fprintf(out, "%s::%s", g_base_info_get_name(iface), g_base_info_get_name(iface));
+					fprintf(f, "%s::%s", g_base_info_get_name(iface), g_base_info_get_name(iface));
 					break;
 				case GI_INFO_TYPE_FLAGS:
-					fprintf(out, "u64/*(%s enum)*/", g_base_info_get_name(iface));
+					fprintf(f, "u64/*(%s enum)*/", g_base_info_get_name(iface));
 					break;
 				case GI_INFO_TYPE_OBJECT:
-					fprintf(out, "grust::Object<%s>", g_base_info_get_name(iface));
+					fprintf(f, "grust::Object<%s>", g_base_info_get_name(iface));
 					break;
 				case GI_INFO_TYPE_INTERFACE:
-					fprintf(out, "grust::Interface<%s>", g_base_info_get_name(iface));
+					fprintf(f, "grust::Interface<%s>", g_base_info_get_name(iface));
 					break;
 				case GI_INFO_TYPE_UNION:
-					raw_union_type(iface);
+					bare_union_type(f, iface);
 					break;
 				case GI_INFO_TYPE_UNRESOLVED:
 					fprintf(stderr, "unresolved type %s! any bindings using this type will be garbage! (let's call it a void* for now)\n", g_base_info_get_name(iface));
-					fprintf(out, "*libc::c_void");
+					fprintf(f, "*libc::c_void");
 					break;
 				default:
 					fprintf(stderr, "[iface type %d %s]\n", g_base_info_get_type(iface), g_base_info_get_name(iface));
@@ -262,32 +274,44 @@ void raw_type(GITypeInfo* type)
 		}
 		else if(tag == GI_TYPE_TAG_GLIST)
 		{
-			raw_allocation();
-			fprintf(out, "%sList", glib_prefix());
-			raw_type_params(type, 1);
+			bare_allocation(f);
+			fprintf(f, "%sList", glib_prefix());
+			bare_type_params(f, type, 1);
 		}
 		else if(tag == GI_TYPE_TAG_GSLIST)
 		{
-			raw_allocation();
-			fprintf(out, "%sSList", glib_prefix());
-			raw_type_params(type, 1);
+			bare_allocation(f);
+			fprintf(f, "%sSList", glib_prefix());
+			bare_type_params(f, type, 1);
 		}
 		else if(tag == GI_TYPE_TAG_GHASH)
 		{
-			raw_allocation();
-			fprintf(out, "%sHashTable", glib_prefix());
-			raw_type_params(type, 2);
+			bare_allocation(f);
+			fprintf(f, "%sHashTable", glib_prefix());
+			bare_type_params(f, type, 2);
 		}
 		else if(tag == GI_TYPE_TAG_ERROR)
 		{
 			/*TODO: allocation*/
-			fprintf(out, "&mut &mut %sError", glib_prefix());
+			fprintf(f, "&mut &mut %sError", glib_prefix());
 		}
 		else
 		{
 			fprintf(stderr, "(type %s)", type_tag(tag));
 		}
 	}
+}
+
+/* output a return type for a function, or nothing if it returns void */
+void bare_return_type(FILE* f, GICallableInfo* info)
+{
+	GITypeInfo* ret_type = g_callable_info_get_return_type(info);
+	if(g_type_info_get_tag(ret_type) != GI_TYPE_TAG_VOID)
+	{
+		fprintf(f, " -> ");
+		bare_type(f, ret_type);
+	}
+	g_base_info_unref(ret_type);
 }
 
 /* first output a FFI definition for the C function,
@@ -299,21 +323,39 @@ void do_function(GICallableInfo* info)
 	bool option = g_callable_info_may_return_null(info);
 	
 	bool is_callback = g_base_info_get_type(info) == GI_INFO_TYPE_CALLBACK;
+	bool is_constructor = !is_callback && !!(g_function_info_get_flags(info) & GI_FUNCTION_IS_CONSTRUCTOR);
 	bool is_method = false;
 	if(!is_callback)
 		is_method = !!(g_function_info_get_flags(info) & GI_FUNCTION_IS_METHOD);
-
+	
 	//bool getter maps to (&A) -> (B)
 	//bool setter maps to (&A or ~A) -> ()
 	//bool has_error maps to Result<T>
 	
 	if(is_callback)
 	{
-		fmt_line("pub type %s = ", function_name);
-		raw_fn_type(info);
+		/* simply output the type */
+		raw_line("pub type %s = ", function_name);
+		bare_fn_type(raw, info);
+		fprintf(raw, ";");
+		
+		/* ...and expose it at the top-level */
+		hl_line("pub type %s = raw::%s;", function_name, function_name);
+		return;
 	}
-	else if(is_method)
+	
+	/* output raw binding */
+	const gchar* extern_name = g_function_info_get_symbol(info);
+	raw_line("extern \"C\" { pub fn %s(", extern_name);
+	bare_args(raw, info, ARGS_FULL, false);
+	fprintf(raw, ")");
+	bare_return_type(raw, info);
+	fprintf(raw, ";}");
+	
+	/* output high-level binding */
+	if(is_method)
 	{
+		/* output high-level binding as method */
 		GITypeInfo* object_type = g_callable_info_get_arg(info, 0);
 		const gchar* type_name = escaped_name(object_type);
 /*
@@ -321,84 +363,89 @@ impl Foo {
 fn bar(&self) -> uint {4}
 }
 */
-		fmt_line("impl %s {", type_name);
-		indent++;
-		fmt_line("fn %s(", function_name);
+		raw_line("impl %s {", type_name);
+		raw_indent++;
+		raw_line("fn %s(", function_name);
 		/*do self arg*/
-		fprintf(out, "?DUMMY_SELF, ");
-		do_args(info, true);
-		fprintf(out, ")");
-		indent--;
-		fmt_line("}");
+		fprintf(raw, "&mut self, ");
+		bare_args(raw, info, ARGS_FULL, true);
+		fprintf(raw, ")");
+		raw_indent--;
+		raw_line("}");
 		g_base_info_unref(object_type);
 	}
+/*	else if(is_constructor)
+	{
+		//TODO: output proper constructor function
+	}*/
 	else
 	{
-		bool constructor = !!(g_function_info_get_flags(info) & GI_FUNCTION_IS_CONSTRUCTOR);
+		/* output regular fn wrapper */
+		hl_line("pub fn %s(", function_name);
+		bare_args(hl, info, ARGS_FULL, false);
+		fprintf(hl, ")");
+		bare_return_type(hl, info);
+		fprintf(hl, " { unsafe {");
 		const gchar* extern_name = g_function_info_get_symbol(info);
-		fmt_line("extern \"C\" { fn %s(", function_name);
-		do_args(info, false);
-		fprintf(out, ")");
-	}
-	GITypeInfo* ret_type = g_callable_info_get_return_type(info);
-	if(g_type_info_get_tag(ret_type) != GI_TYPE_TAG_VOID)
-	{
-		fprintf(out, " -> ");
-		raw_type(ret_type);
-	}
-	g_base_info_unref(ret_type);
-	if(is_callback)
-	{
-		fprintf(out, ";");
-	}
-	else if(!is_method)
-	{
-		fprintf(out, ";}");
+		fprintf(hl, "raw::%s(", extern_name);
+		bare_args(hl, info, ARGS_NAMES, false);
+		fprintf(hl, ") } }");
 	}
 }
 
 void do_field(GIFieldInfo* info)
 {
 	bool writable = !!(g_field_info_get_flags(info) & GI_FIELD_IS_WRITABLE);
-	fmt_line("");
-	raw_type_named(g_field_info_get_type(info), escaped_name(info));
-	fprintf(out, ",");
+	fmt_line(raw, "");
+	bare_type_named(raw, g_field_info_get_type(info), escaped_name(info));
+	fprintf(raw, ",");
+}
+
+void bare_type_generic_params(FILE* f, GITypeInfo* type)
+{
+	const char* name = escaped_name(type);
+	if(1/*TODO: only emit for these types from the glib namespace*/)
+	{
+		if(!strcmp(name, "List") || !strcmp(name, "SList") || !strcmp(name, "Array") || !strcmp(name, "PtrArray"))
+		{
+			fprintf(f, "<T>");
+		}
+		else if(!strcmp(name, "HashTable"))
+		{
+			fprintf(f, "<K, V>");
+		}
+	}
 }
 
 void do_struct(GIStructInfo* info)
 {
 	const char* name = escaped_name(info);
-	fmt_line("pub struct %s", name);
-	if(is_glib)
-	{
-		if(!strcmp(name, "List") || !strcmp(name, "SList") || !strcmp(name, "Array") || !strcmp(name, "PtrArray"))
-		{
-			fprintf(out, "<T>");
-		}
-		else if(!strcmp(name, "HashTable"))
-		{
-			fprintf(out, "<K, V>");
-		}
-	}
+	raw_line("pub struct %s", name);
+	bare_type_generic_params(raw, info);
+	hl_line("pub type %s", name);
+	bare_type_generic_params(hl, info);
+	fprintf(hl, " = raw::%s", name);
+	bare_type_generic_params(hl, info);
+	fprintf(hl, ";");
 	
 	int n = g_struct_info_get_n_fields(info);
 	int i;
 	if(n>0)
 	{
-		fprintf(out, " {");
-		indent++;
+		fprintf(raw, " {");
+		raw_indent++;
 		for(i=0; i<n; i++)
 		{
 			GITypeInfo* field = g_struct_info_get_field(info, i);
 			do_field(field);
 			g_base_info_unref(field);
 		}
-		indent--;
-		fmt_line("}");
+		raw_indent--;
+		raw_line("}");
 	}
 	else
 	{
-		fprintf(out, ";");
+		fprintf(raw, ";");
 	}
 }
 
@@ -416,8 +463,10 @@ void do_enum(GIEnumInfo* info)
 	
 	/*TODO: single-variant enums *do* need to have a specified repr but this is impossible currently*/
 	const char* repr = (n>1) ? "#[repr(C)] " : "";
-	fmt_line("pub mod %s { %spub enum %s {", escaped_name(info), repr, escaped_name(info));
-	indent++;
+	raw_line("pub mod %s { %spub enum %s {", escaped_name(info), repr, escaped_name(info));
+	raw_indent++;
+	
+	hl_line("pub mod %s { use raw; pub type %s = raw::%s::%s; }", escaped_name(info), escaped_name(info), escaped_name(info), escaped_name(info));
 	
 	GITypeInfo* first_variant = g_enum_info_get_value(info, 0);
 	gint64 last_value = g_value_info_get_value(first_variant)+1;
@@ -441,9 +490,9 @@ void do_enum(GIEnumInfo* info)
 		last_value = value;
 		g_base_info_unref(variant);
 	}
-	indent--;
+	raw_indent--;
 	/* TODO: use max and/or min to determine signedness/range */
-	fmt_line("} }");
+	raw_line("} }");
 }
 
 /*do_flags*/
@@ -452,8 +501,8 @@ void do_object(GIObjectInfo* info)
 {
 	/* TODO: more complete object support */
 	const char* name = escaped_name(info);
-	fmt_line("/*object*/pub struct %s", name);
-	fprintf(out, ";");
+	raw_line("/*object*/pub struct %s", name);
+	fprintf(raw, ";");
 }
 
 /*this may be possible to turn into a trait!*/
@@ -465,9 +514,81 @@ void do_interface(GIInterfaceInfo* info)
 	"}";
 }
 
+/*TODO: this is WRONG. g_strescape escapes \b, \f, \n, \r, \t, \v, ', and ", but turns 0x01-0x1f,0x7f-0xff into "\octal" which Rust does not support. */
+gchar* rust_str_escape(const gchar* str)
+{
+	return g_strescape(str, NULL);
+/*	size_t n = strlen(str);
+	escaped=malloc(n*4);*/ /*worst-case we escape every character*/
+}
+
+void bare_value(FILE* f, GIArgument value, GITypeInfo* type)
+{
+	GITypeTag tag = g_type_info_get_tag(type);
+	assert(tag != GI_TYPE_TAG_ARRAY);
+	switch(tag)
+	{
+		case GI_TYPE_TAG_VOID:
+			fprintf(f, "()");
+			break;
+		case GI_TYPE_TAG_INT8:
+			fprintf(f, "%d", value.v_int8);
+			break;
+		case GI_TYPE_TAG_UINT8:
+			fprintf(f, "%d", value.v_uint8);
+			break;
+		case GI_TYPE_TAG_INT16:
+			fprintf(f, "%d", value.v_int16);
+			break;
+		case GI_TYPE_TAG_UINT16:
+			fprintf(f, "%d", value.v_uint16);
+			break;
+		case GI_TYPE_TAG_INT32:
+			fprintf(f, "%d", value.v_int32);
+			break;
+		case GI_TYPE_TAG_UINT32:
+			fprintf(f, "%d", value.v_uint32);
+			break;
+		case GI_TYPE_TAG_INT64:
+			fprintf(f, "%d", value.v_int64);
+			break;
+		case GI_TYPE_TAG_UINT64:
+			fprintf(f, "%d", value.v_uint64);
+			break;
+		case GI_TYPE_TAG_FLOAT:/*TODO: unambiguous float notation?*/
+			fprintf(f, "%f", value.v_float);
+			break;
+		case GI_TYPE_TAG_DOUBLE:/*TODO: unambiguous float notation?*/
+			fprintf(f, "%lf", value.v_double);
+			break;
+		case GI_TYPE_TAG_UTF8:
+			{
+				gchar* str=rust_str_escape(value.v_string);
+				fprintf(f, "\"%s\"", str);
+				free(str);
+			}
+			break;
+		default:
+			assert(0 && "unknown type tag when expressing value");
+	}
+}
+
 void do_constant(GIConstantInfo* info)
 {
-	//TODO: this
+	GIArgument value;/*union of v_foo fields for various types. /great/.*/
+	g_constant_info_get_value(info, &value);
+
+	hl_line("pub static %s: ", escaped_name(info));
+	GITypeInfo* type = g_constant_info_get_type(info);
+	/*TODO: string types are a mess, generate constants w/ bytes!?*/
+	if(g_type_info_get_tag(type)==GI_TYPE_TAG_UTF8)
+		fprintf(hl, "&'static str");
+	else
+		bare_type(hl, type);
+	fprintf(hl, " = ");
+	bare_value(hl, value, type);
+	g_base_info_unref(type);
+	fprintf(hl, ";");
 }
 
 //...
@@ -475,10 +596,10 @@ void do_constant(GIConstantInfo* info)
 /*a possibly-untagged enum*/
 void do_union(GIUnionInfo* info)
 {
-	//fmt_line("%s: ", escaped_name(info));
-	fmt_line("pub type %s = ", escaped_name(info));
-	raw_union_type(info);
-	fprintf(out, ";");
+	//raw_line("%s: ", escaped_name(info));
+	raw_line("pub type %s = ", escaped_name(info));
+	bare_union_type(raw, info);
+	fprintf(raw, ";");
 }
 //...
 
@@ -486,14 +607,14 @@ void do_union(GIUnionInfo* info)
 void do_value(GIValueInfo* info)
 {
 	gint64 value = g_value_info_get_value(info);
-	fmt_line("%s = %d,", escaped_name(info), value);
+	raw_line("%s = %d,", escaped_name(info), value);
 }
 
 void do_type(GITypeInfo* info)
 {
-	fmt_line("pub type %s = ", escaped_name(info));
-	raw_type(info);
-	fprintf(out, ";");
+	raw_line("pub type %s = ", escaped_name(info));
+	bare_type(raw, info);
+	fprintf(raw, ";");
 }
 
 
