@@ -18,6 +18,7 @@ const char* glib_prefix()
 	return is_glib?"":"GLib::";
 }
 
+const gchar* shared_lib_path = NULL;
 void process_info(GIBaseInfo* info);
 FILE* raw = NULL;
 FILE* hl = NULL;
@@ -116,6 +117,8 @@ void process_namespace(GIRepository* repo, const gchar* namespace)
 	hl_line("use grust::gboolean;");/*TODO: fix gboolean*/
 		//TODO: output high-level wrappers...
 
+	shared_lib_path = g_irepository_get_shared_library(repo, namespace);
+	
 	int n = g_irepository_get_n_infos (repo, namespace);
 	int i;
 	for(i=0; i<n; i++)

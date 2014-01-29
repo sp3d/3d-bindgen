@@ -345,6 +345,20 @@ void do_function(GICallableInfo* info)
 	}
 	
 	/* output raw binding */
+	if(shared_lib_path)
+	{
+		gchar** lib_names=g_strsplit(shared_lib_path, ",", 0);
+		int i;
+		for(i=0; lib_names[i]; i++)
+		{
+			//libglib-2.0.so.0 -> glib-2.0
+			char* so=strstr(lib_names[i], ".so");
+			*so='\0';
+			raw_line("#[link(name = \"%s\")]", lib_names[i]+strlen("lib"));
+		}
+		g_strfreev(lib_names);
+		shared_lib_path=NULL;
+	}
 	const gchar* extern_name = g_function_info_get_symbol(info);
 	raw_line("extern \"C\" { pub fn %s(", extern_name);
 	bare_args(raw, info, ARGS_FULL, false);

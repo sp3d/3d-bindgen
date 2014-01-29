@@ -18,10 +18,11 @@ Similarly, the last known working rustc commit (though at any time HEAD *should*
 Current status:
 	2d-bindgen (the bootstrap binding generator) is a work in progress.
 	2d-bindgen currently produces a 'raw' stub module exposing the FFI interface; this needs a safe wrapper to be generated around it to idiomatically expose object types to Rust.
+	2d-bindgen does not yet bind objects, functions, and methods with safe, idiomatic wrappers, but can already be used for unsafely accessing the functions and other definitions from GIR libraries instead of writing manual bindings to do so.
 	No work which will be viable in the long term has yet been done on 3d-bindgen (the self-hosted binding generator).
 
 Compilation:
 	Run "make" in the 2d-bindgen directory, pointing it to the "grust/.libs" dir of the grust repo.
 		make GRUST_LIBS="-L /path/to/grust/build/grust/.libs/"
 	Run "make generate-compile" to test binding generation and compilation of a GIR library.
-	The resultant libgrust-*-2d-bindgen-*.so file is not yet very useful as objects, functions, and methods are not yet wrapped in a safe, idiomatic wrapper.
+	Run "make bin-test" to test a rust program making use of an automatically-bound GIR library.
