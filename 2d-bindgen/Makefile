@@ -1,7 +1,7 @@
 build: 2d-bindgen
 
-2d-bindgen: 2d-bindgen.c 2d-bindgen-guts.c
-	gcc -g `pkg-config --cflags --libs gobject-introspection-1.0` 2d-bindgen.c -o 2d-bindgen
+2d-bindgen: 2d-bindgen.c 2d-bindgen-guts.c type-convert.c
+	gcc -g `pkg-config --cflags --libs gobject-introspection-1.0` 2d-bindgen.c type-convert.c -o 2d-bindgen
 
 GRUST_LIBS=-L ../../grust/build/grust/.libs/ -L ../../grust/build/na/.libs/
 
