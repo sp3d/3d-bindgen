@@ -360,10 +360,14 @@ void do_function(GICallableInfo* info)
 		int i;
 		for(i=0; lib_names[i]; i++)
 		{
-			//libglib-2.0.so.0 -> glib-2.0
-			char* so=strstr(lib_names[i], ".so");
-			*so='\0';
-			raw_line("#[link(name = \"%s\")]", lib_names[i]+strlen("lib"));
+			/* libglib-2.0.so.0 -> glib-2.0 */
+			char* lib_name=lib_names[i];
+			if(!strncmp(lib_name, "lib", strlen("lib")))
+				lib_name+=strlen("lib");
+			char* so=strstr(lib_name, ".so");
+			if(so)
+				*so='\0';
+			raw_line("#[link(name = \"%s\")]", lib_name);
 		}
 		g_strfreev(lib_names);
 		shared_lib_path=NULL;
