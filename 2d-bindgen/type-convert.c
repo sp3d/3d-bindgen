@@ -308,24 +308,93 @@ void bind_unsafe_func(GICallableInfo* info)
 {
 	if(g_base_info_get_type(info) == GI_INFO_TYPE_FUNCTION && g_callable_info_is_method(info))
 	{
-		
+		//fprintf(stderr, "method should be in an impl!\n");
+		/*
+		let imp=find_or_make_impl(args[0]);
+		add to impl
+		print impls at the end of binding
+		*/
 	}
 	
-	/*get args from info*/
-	/*
-	g_arg_info_may_be_null -> Option<...>
+	if(g_callable_info_can_throw_gerror(info))
+	{
+		//fprintf(stderr, "throws gerror!\n");
+	}
 	
-	g_arg_info_get_ownership_transfer
-	GI_TRANSFER_EVERYTHING -> ~foo
-	GI_TRANSFER_CONTAINER -> ~foo?
-	GI_TRANSFER_NOTHING -> &foo
-	*/
-	/*for an arg: 
-		if g_arg_info_is_caller_allocates (GIArgInfo *info)
-			outer pointer is &mut or &
+	typedef struct
+	{
+		int c_idx;
+		int rs_idx;
+		rt* rust_type;
+	}
+	arg_attrs;
+	
+	/*get args from info*/
+	gint n_args=g_callable_info_get_n_args(info);
+	assert(n_args>=0);
+	
+	arg_attrs args[n_args];
+	int i;
+	for(i=0; i<n_args; i++)
+	{
+		args[i].c_idx=i;
+		args[i].rs_idx=-1;
+		args[i].rust_type=NULL;
+	}
+	GIArgInfo arg_info;
+	for(i=0; i<n_args; i++)
+	{
+		/* an rs_idx of -1 indicates it's been processed and should be skipped
+		in Rust signature generation (having been subsumed by another argument) */
+		if(args[i].rs_idx != -1)
+			continue;
 		else
-			outer pointer is &mut 
-	*/
+			args[i].rs_idx = i;
+		
+		g_callable_info_load_arg(info, i, &arg_info);
+		GITransfer transfer=g_arg_info_get_ownership_transfer(&arg_info);
+		/*
+		GI_TRANSFER_NOTHING -> T/&[T]/&glib::Array<T> for T=Foo:Pod/&Foo
+		GI_TRANSFER_CONTAINER -> ~[T]/glib::Array<T> for T=Foo:Pod/&Foo
+		GI_TRANSFER_EVERYTHING -> ~[T]/glib::Array<T> for T=Foo/~Foo
+		*/
+		GIScopeType scope=g_arg_info_get_scope(&arg_info);
+		if(scope != GI_SCOPE_TYPE_INVALID) /*arg is a callback*/
+		{
+			assert(transfer==GI_TRANSFER_NOTHING && "unknown transfer for a closure");
+			gint destroy_index=g_arg_info_get_destroy(&arg_info);
+			if(destroy_index > -1)
+			{
+				assert(destroy_index < n_args);
+//				args[destroy_index].rs_idx=;
+			}
+			gint data_index=g_arg_info_get_closure(&arg_info);
+			if(data_index > -1)
+			{
+				assert(data_index < n_args);
+//				args[data_index].rs_idx=;
+			}
+		}
+		else
+		{
+			/*for an arg: 
+				if g_arg_info_is_caller_allocates (GIArgInfo *info)
+					outer pointer is &mut or &
+				else
+					outer pointer is &mut 
+			*/
+			GITypeInfo arg_type;
+			g_arg_info_load_type(&arg_info, &arg_type);
+			
+			if(g_arg_info_is_optional(&arg_info))
+			{
+				fprintf(stderr, "optional argument encountered! call the cops! (I've never seen one of these)\n");
+				assert(g_arg_info_is_optional(&arg_info) == g_arg_info_may_be_null(&arg_info));
+			}
+		}
+		g_callable_info_load_arg(info, i, &arg_info);
+	}
+	
 	/*get return type from info*/
 	GITypeInfo* c_ret_type=g_callable_info_get_return_type(info);
 	rt* ret_type=NULL;
@@ -337,12 +406,14 @@ void bind_unsafe_func(GICallableInfo* info)
 		}
 		else if(ret_type->kind==rt_kind_raw_ptr)
 		{
-			//do nothing
+			//raw pointers may be NULL implicitly
 		}
 		else
 		{
-			assert(0 && "how should we optionize a non-pointer type?");
+			assert(0 && "attempt to optionize a non-pointer C return type");
 		}
 	}
+	
+	
 	g_base_info_unref(c_ret_type);
 }

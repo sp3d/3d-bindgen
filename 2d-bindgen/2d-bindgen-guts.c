@@ -395,6 +395,8 @@ fn bar(&self) -> uint {4}
 	else
 	{
 		/* output regular fn wrapper */
+		bind_unsafe_func(info);
+		/*
 		hl_line("pub fn %s(", function_name);
 		bare_args(hl, info, ARGS_FULL, false);
 		fprintf(hl, ")");
@@ -403,7 +405,7 @@ fn bar(&self) -> uint {4}
 		const gchar* extern_name = g_function_info_get_symbol(info);
 		fprintf(hl, "raw::%s(", extern_name);
 		bare_args(hl, info, ARGS_NAMES, false);
-		fprintf(hl, ") } }");
+		fprintf(hl, ") } }");*/
 	}
 }
 
