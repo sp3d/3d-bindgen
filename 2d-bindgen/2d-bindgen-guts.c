@@ -209,19 +209,22 @@ void bare_type(FILE* f, GITypeInfo* type)
 					break;
 				case GI_ARRAY_TYPE_ARRAY:/* &/~ GLib::Array<T> */
 					bare_allocation(f);
-					fprintf(f, "%sArray<", glib_prefix());
+					bare_prefix_str(f, "GLib");
+					fprintf(f, "Array<");
 					bare_type(f, param);
 					fprintf(f, ">");
 					break;
 				case GI_ARRAY_TYPE_PTR_ARRAY:/* &/~ GLib::PtrArray<T> */
 					bare_allocation(f);
-					fprintf(f, "%sPtrArray<", glib_prefix());
+					bare_prefix_str(f, "GLib");
+					fprintf(f, "PtrArray<");
 					bare_type(f, param);
 					fprintf(f, ">");
 					break;
 				case GI_ARRAY_TYPE_BYTE_ARRAY:/* &/~ GLib::ByteArray*/
 					bare_allocation(f);
-					fprintf(f, "%sByteArray", glib_prefix());
+					bare_prefix_str(f, "GLib");
+					fprintf(f, "ByteArray");
 					break;
 				default:
 					assert(0);
@@ -240,14 +243,18 @@ void bare_type(FILE* f, GITypeInfo* type)
 				case GI_INFO_TYPE_CALLBACK:
 					bare_fn_type(f, iface);
 					break;
+				case GI_INFO_TYPE_UNION:
 				case GI_INFO_TYPE_STRUCT:
-					//TODO: struct namespacing?
+					/*TODO: struct namespacing? uses?*/
+					bare_prefix(f, iface);
 					fprintf(f, "%s", g_base_info_get_name(iface));
 					break;
 				case GI_INFO_TYPE_BOXED:
-					fprintf(f, "GLib::Boxed<%s>", g_base_info_get_name(iface));
+					bare_prefix_str(f, "GLib");
+					fprintf(f, "Boxed<%s>", g_base_info_get_name(iface));
 					break;
 				case GI_INFO_TYPE_ENUM:
+					/* 'enum mod' emulation */
 					fprintf(f, "%s::%s", g_base_info_get_name(iface), g_base_info_get_name(iface));
 					break;
 				case GI_INFO_TYPE_FLAGS:
@@ -258,9 +265,6 @@ void bare_type(FILE* f, GITypeInfo* type)
 					break;
 				case GI_INFO_TYPE_INTERFACE:
 					fprintf(f, "grust::Interface<%s>", g_base_info_get_name(iface));
-					break;
-				case GI_INFO_TYPE_UNION:
-					bare_union_type(f, iface);
 					break;
 				case GI_INFO_TYPE_UNRESOLVED:
 					fprintf(stderr, "unresolved type %s! any bindings using this type will be garbage! (let's call it a void* for now)\n", g_base_info_get_name(iface));
@@ -275,25 +279,30 @@ void bare_type(FILE* f, GITypeInfo* type)
 		else if(tag == GI_TYPE_TAG_GLIST)
 		{
 			bare_allocation(f);
-			fprintf(f, "%sList", glib_prefix());
+			bare_prefix_str(f, "GLib");
+			fprintf(f, "List");
 			bare_type_params(f, type, 1);
 		}
 		else if(tag == GI_TYPE_TAG_GSLIST)
 		{
 			bare_allocation(f);
-			fprintf(f, "%sSList", glib_prefix());
+			bare_prefix_str(f, "GLib");
+			fprintf(f, "SList");
 			bare_type_params(f, type, 1);
 		}
 		else if(tag == GI_TYPE_TAG_GHASH)
 		{
 			bare_allocation(f);
-			fprintf(f, "%sHashTable", glib_prefix());
+			bare_prefix_str(f, "GLib");
+			fprintf(f, "HashTable");
 			bare_type_params(f, type, 2);
 		}
 		else if(tag == GI_TYPE_TAG_ERROR)
 		{
 			/*TODO: allocation*/
-			fprintf(f, "&mut &mut %sError", glib_prefix());
+			fprintf(f, "&mut &mut ");
+			bare_prefix_str(f, "GLib");
+			fprintf(f, "Error");
 		}
 		else
 		{
@@ -412,7 +421,7 @@ fn bar(&self) -> uint {4}
 void do_field(GIFieldInfo* info)
 {
 	bool writable = !!(g_field_info_get_flags(info) & GI_FIELD_IS_WRITABLE);
-	fmt_line(raw, "");
+	raw_line("");
 	bare_type_named(raw, g_field_info_get_type(info), escaped_name(info));
 	fprintf(raw, ",");
 }
@@ -612,7 +621,6 @@ void do_constant(GIConstantInfo* info)
 /*a possibly-untagged enum*/
 void do_union(GIUnionInfo* info)
 {
-	//raw_line("%s: ", escaped_name(info));
 	raw_line("pub type %s = ", escaped_name(info));
 	bare_union_type(raw, info);
 	fprintf(raw, ";");

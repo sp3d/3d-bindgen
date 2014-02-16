@@ -7,15 +7,19 @@
 #include <sys/stat.h>
 #include <errno.h>
 
+const gchar* current_namespace = NULL;
 
-bool is_glib=false;
-void set_is_glib(const char* namespace)
+void bare_prefix_str(FILE* f, const char* symbol_namespace)
 {
-	is_glib=!strcmp(namespace, "GLib");
+	if(symbol_namespace != current_namespace && strcmp(symbol_namespace, current_namespace))
+	{
+		fprintf(f, "%s::", symbol_namespace);
+	}
 }
-const char* glib_prefix()
+
+void bare_prefix(FILE* f, GIBaseInfo* info)
 {
-	return is_glib?"":"GLib::";
+	bare_prefix_str(f, g_base_info_get_namespace(info));
 }
 
 const gchar* shared_lib_path = NULL;
@@ -34,6 +38,7 @@ int hl_indent = 0;
 
 void process_info(GIBaseInfo* info)
 {
+	current_namespace = g_base_info_get_namespace(info);
 	switch(g_base_info_get_type(info))
 	{
 		case GI_INFO_TYPE_FUNCTION:
@@ -89,16 +94,17 @@ char* progname = NULL;
 
 void process_namespace(GIRepository* repo, const char* outdir, const gchar* namespace)
 {
-	//generate a file for that namespace's raw contents
+	/*generate a file for that namespace's raw contents*/
 	char* filename=g_strdup_printf("%s/gen-%s.rs", outdir, namespace);
 	raw = fopen(filename, "w");
 	assert(raw);
 	g_free(filename);
 	
-	set_is_glib(namespace);
 	raw_line("extern mod grust;");
 	raw_line("use std::libc;");
-	if(!is_glib)
+	
+	/*TODO: accumulate 'uses' properly, don't special-case or assume GLib*/
+	if(strcmp(namespace, "GLib"))
 		raw_line("use GLib;");
 	
 	raw_line("use grust::gboolean;");
@@ -126,7 +132,8 @@ void process_namespace(GIRepository* repo, const char* outdir, const gchar* name
 	hl_line("use grust;");
 	hl_line("use std::libc;");
 	hl_line("use grust::gboolean;");/*TODO: fix gboolean*/
-		//TODO: output high-level wrappers...
+	
+	/*TODO: output high-level wrappers...*/
 	
 	shared_lib_path = g_irepository_get_shared_library(repo, namespace);
 	
