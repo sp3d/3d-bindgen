@@ -103,7 +103,6 @@ void process_namespace(GIRepository* repo, const gchar* namespace)
 	raw_line("use grust::gboolean;");
 	raw_line("pub type interface = ();");
 	
-	hl_line("#[feature(globs)];");
 	hl_line("extern mod grust;");
 	hl_line("#[path=\"gen-%s.rs\"]", namespace);
 	hl_line("mod raw;");
@@ -116,7 +115,7 @@ void process_namespace(GIRepository* repo, const gchar* namespace)
 	hl_line("use std::libc;");
 	hl_line("use grust::gboolean;");/*TODO: fix gboolean*/
 		//TODO: output high-level wrappers...
-
+	
 	shared_lib_path = g_irepository_get_shared_library(repo, namespace);
 	
 	int n = g_irepository_get_n_infos (repo, namespace);
