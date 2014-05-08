@@ -1,4 +1,4 @@
-extern mod glib = "grust-GLib-2d-bindgen";
+extern crate glib = "grust-GLib-2d-bindgen";
 use glib::GLib;
 
 fn main()

@@ -22,7 +22,7 @@ gen-$(TEST_LIB)/lib.rs: 2d-bindgen
 generate-compile: gen-GLib/libgrust-$(TEST_LIB)-*.so
 
 gen-$(TEST_LIB)/libgrust-$(TEST_LIB)-*.so: gen-$(TEST_LIB)/lib.rs
-	rustc --lib gen-$(TEST_LIB)/lib.rs $(GRUST_LIBS)
+	rustc --crate-type=lib gen-$(TEST_LIB)/lib.rs $(GRUST_LIBS)
 
 clean:
 	$(RM) 2d-bindgen

@@ -466,6 +466,7 @@ void do_struct(GIStructInfo* info)
 		for(i=0; i<n; i++)
 		{
 			GITypeInfo* field = g_struct_info_get_field(info, i);
+			fprintf(raw, "pub ");
 			do_field(field);
 			g_base_info_unref(field);
 		}
@@ -560,6 +561,9 @@ void bare_value(FILE* f, GIArgument value, GITypeInfo* type)
 		case GI_TYPE_TAG_VOID:
 			fprintf(f, "()");
 			break;
+		case GI_TYPE_TAG_BOOLEAN:
+			fprintf(f, value.v_boolean?"grust::types::TRUE":"grust::types::FALSE");
+			break;
 		case GI_TYPE_TAG_INT8:
 			fprintf(f, "%d", value.v_int8);
 			break;
@@ -598,6 +602,7 @@ void bare_value(FILE* f, GIArgument value, GITypeInfo* type)
 			}
 			break;
 		default:
+			fprintf(stderr, "encountered type tag %d\n", tag);
 			assert(0 && "unknown type tag when expressing value");
 	}
 }
